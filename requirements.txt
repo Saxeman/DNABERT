@@ -1,0 +1,9 @@
+torch
+numpy
+pandas
+pytorch_lightning
+seaborn
+matplotlib
+torchmetrics
+transformers
+tensorflow
