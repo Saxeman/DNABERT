@@ -1,17 +1,11 @@
 # Splice main
-from MODELS.baseline import BaselineModelA
+from MODELS.baseline import BaselineModelA, BaselineModelB
 from dataset_handler import StandardDataset
 from metrics import ClassificationMetrics
 from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import LearningRateMonitor
-
-# TODO: ANDREW ADDED THIS
-from pytorch_lightning.loggers import TensorBoardLogger
-from datetime import datetime
-# TODO
-
 import pandas as pd
 import numpy as np
 
@@ -50,21 +44,17 @@ def train_model(config_dict: dict):
     # Model variables
     model = str(model_config["model"])
     dnabert_path = str(model_config["dnabert_path"])
-    kmer_val = int(model_config["kmer_val"])
     max_sequence_length = int(model_config["max_sequence_length"])
 
     # Datasets and dataloaders
     train_ds = StandardDataset(path=train_path, 
-                               max_length=max_sequence_length, 
-                               kmer_val=kmer_val, 
+                               max_length=max_sequence_length,
                                dnabert_path=dnabert_path)
     val_ds = StandardDataset(path=val_path, 
-                             max_length=max_sequence_length, 
-                             kmer_val=kmer_val, 
+                             max_length=max_sequence_length,
                              dnabert_path=dnabert_path)
     test_ds = StandardDataset(path=test_path, 
-                              max_length=max_sequence_length, 
-                              kmer_val=kmer_val, 
+                              max_length=max_sequence_length,
                               dnabert_path=dnabert_path)
     train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True, num_workers=num_workers)
     val_loader = DataLoader(val_ds, batch_size=BATCH_SIZE, shuffle=False, num_workers=num_workers)
@@ -79,17 +69,21 @@ def train_model(config_dict: dict):
             fine_tune=fine_tune,
             lr=learning_rate,
             num_classes=NUM_CLASSES)
+        
+    elif model == "DNABERT_B":
+        model = BaselineModelB(
+            dnabert_path=dnabert_path,
+            total_number_of_samples=len(train_ds),
+            max_epochs=MAX_EPOCHS,
+            batch_size=BATCH_SIZE,
+            fine_tune=fine_tune,
+            lr=learning_rate,
+            num_classes=NUM_CLASSES)
     else:
         raise Exception(f"Model type error or not implemented! model = {model}")
-
-    # TODO: ANDREW ADDED THIS
-    now = datetime.now()
-    logdir = "tb_logs/.../" + now.strftime("%Y%m%d-%H%M%S") + "/"
-    logger = TensorBoardLogger(logdir, name="my_model")
-    # TODO
-
+    
     learning_rate_monitor = LearningRateMonitor(logging_interval='step')
-    trainer = pl.Trainer(accelerator="cpu",
+    trainer = pl.Trainer(accelerator="gpu",
                         precision='16-mixed',
                         limit_train_batches=limit_train_batches,
                         accumulate_grad_batches=accumulate_grad_batches,
@@ -100,8 +94,7 @@ def train_model(config_dict: dict):
                         callbacks=[EarlyStopping(monitor=early_stop_monitor, 
                                                  mode=early_stop_mode, 
                                                  patience=patience), 
-                                    learning_rate_monitor],
-                         logger=logger)
+                                    learning_rate_monitor])
     # Training
     trainer.fit(model, train_loader, val_loader)
     trainer.test(model, test_loader)
