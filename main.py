@@ -1,7 +1,6 @@
 import configparser
 import argparse
 from train import train_model
-import torch
 
   
 if __name__ == "__main__":
